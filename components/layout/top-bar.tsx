@@ -1,16 +1,23 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { Bell, Search, LogOut, User } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export default function TopBar() {
   const router = useRouter();
-  const currentDate = new Date().toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
+  const [currentDate, setCurrentDate] = useState('');
+
+  useEffect(() => {
+    const formattedDate = new Intl.DateTimeFormat('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    }).format(new Date());
+
+    setCurrentDate(formattedDate);
+  }, []);
 
   const handleLogout = () => {
     router.push('/');
@@ -30,7 +37,9 @@ export default function TopBar() {
       </div>
 
       <div className="flex items-center gap-6">
-        <span className="text-gray-600 text-sm whitespace-nowrap">{currentDate}</span>
+        <span className="text-gray-600 text-sm whitespace-nowrap">
+          {currentDate || 'Loading date…'}
+        </span>
 
         <button className="relative p-2 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors" aria-label="Notifications">
           <Bell size={20} />

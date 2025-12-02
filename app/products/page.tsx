@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Plus, Search, Edit, Trash2, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
@@ -8,32 +8,23 @@ import Modal from '@/components/ui/modal';
 import { Input } from '@/components/ui/input';
 
 interface Product {
-  id: number;
+  id: string;
   name: string;
   sku: string;
   costPrice: number;
   sellingPrice: number;
-  stock: number;
-  status: 'active' | 'inactive';
+  stockQuantity: number;
 }
 
-const initialProducts: Product[] = [
-  { id: 1, name: 'Wireless Headphones', sku: 'WH-001', costPrice: 50, sellingPrice: 129.99, stock: 45, status: 'active' },
-  { id: 2, name: 'Smart Watch Pro', sku: 'SW-002', costPrice: 120, sellingPrice: 299.99, stock: 28, status: 'active' },
-  { id: 3, name: 'Laptop Stand', sku: 'LS-003', costPrice: 15, sellingPrice: 49.99, stock: 67, status: 'active' },
-  { id: 4, name: 'USB-C Cable', sku: 'UC-004', costPrice: 3, sellingPrice: 12.99, stock: 5, status: 'active' },
-  { id: 5, name: 'Mechanical Keyboard', sku: 'MK-005', costPrice: 65, sellingPrice: 149.99, stock: 32, status: 'active' },
-  { id: 6, name: 'Wireless Mouse', sku: 'WM-006', costPrice: 20, sellingPrice: 59.99, stock: 52, status: 'active' },
-  { id: 7, name: 'Phone Case', sku: 'PC-007', costPrice: 5, sellingPrice: 19.99, stock: 89, status: 'active' },
-  { id: 8, name: 'Portable Charger', sku: 'PC-008', costPrice: 25, sellingPrice: 69.99, stock: 41, status: 'active' },
-];
-
 export default function ProductsPage() {
-  const [products, setProducts] = useState<Product[]>(initialProducts);
+  const [products, setProducts] = useState<Product[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     sku: '',
@@ -41,6 +32,42 @@ export default function ProductsPage() {
     sellingPrice: '',
     stock: '',
   });
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setIsLoading(true);
+        const response = await fetch('/api/products');
+        if (!response.ok) {
+          throw new Error('Failed to load products');
+        }
+        const data = await response.json();
+        setProducts(data.products ?? []);
+        setError(null);
+      } catch (err) {
+        console.error(err);
+        setError('Unable to load products. Please try again.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, []);
+
+  const refreshProducts = async () => {
+    try {
+      const response = await fetch('/api/products');
+      if (!response.ok) {
+        throw new Error('Failed to refresh products');
+      }
+      const data = await response.json();
+      setProducts(data.products ?? []);
+    } catch (err) {
+      console.error(err);
+      setError('Unable to refresh products.');
+    }
+  };
 
   const itemsPerPage = 6;
   const filteredProducts = products.filter((product) =>
@@ -58,7 +85,7 @@ export default function ProductsPage() {
         sku: product.sku,
         costPrice: product.costPrice.toString(),
         sellingPrice: product.sellingPrice.toString(),
-        stock: product.stock.toString(),
+        stock: product.stockQuantity.toString(),
       });
     } else {
       setEditingProduct(null);
@@ -78,45 +105,64 @@ export default function ProductsPage() {
     setEditingProduct(null);
   };
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setIsSubmitting(true);
 
-    if (editingProduct) {
-      setProducts((prev) =>
-        prev.map((product) =>
-          product.id === editingProduct.id
-            ? {
-                ...product,
-                name: formData.name,
-                sku: formData.sku,
-                costPrice: Number(formData.costPrice),
-                sellingPrice: Number(formData.sellingPrice),
-                stock: Number(formData.stock),
-              }
-            : product
-        )
-      );
-    } else {
-      setProducts((prev) => [
-        ...prev,
-        {
-          id: prev.length + 1,
-          name: formData.name,
-          sku: formData.sku,
-          costPrice: Number(formData.costPrice),
-          sellingPrice: Number(formData.sellingPrice),
-          stock: Number(formData.stock),
-          status: 'active',
-        },
-      ]);
+    const payload = {
+      name: formData.name,
+      sku: formData.sku,
+      costPrice: formData.costPrice,
+      sellingPrice: formData.sellingPrice,
+      stock: formData.stock,
+    };
+
+    try {
+      const url = editingProduct ? `/api/products/${editingProduct.id}` : '/api/products';
+      const method = editingProduct ? 'PATCH' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to save product');
+      }
+
+      if (editingProduct) {
+        setProducts((prev) => prev.map((product) => (product.id === data.product.id ? data.product : product)));
+      } else {
+        setProducts((prev) => [data.product, ...prev]);
+      }
+
+      handleCloseModal();
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : 'Unable to save product.');
+    } finally {
+      setIsSubmitting(false);
     }
-
-    handleCloseModal();
   };
 
-  const handleDelete = (id: number) => {
-    if (window.confirm('Are you sure you want to delete this product?')) {
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this product?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/products/${id}`, { method: 'DELETE' });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to delete product');
+      }
       setProducts((prev) => prev.filter((product) => product.id !== id));
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : 'Unable to delete product.');
     }
   };
 
@@ -158,6 +204,7 @@ export default function ProductsPage() {
 
         <CardContent className="p-0">
           <div className="overflow-x-auto">
+            {error && <p className="px-6 py-3 text-red-600 text-sm">{error}</p>}
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
@@ -170,39 +217,53 @@ export default function ProductsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {paginatedProducts.map((product) => (
-                  <tr key={product.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 text-gray-900">{product.name}</td>
-                    <td className="px-6 py-4 text-gray-700">{product.sku}</td>
-                    <td className="px-6 py-4 text-gray-700">₵{product.costPrice.toFixed(2)}</td>
-                    <td className="px-6 py-4 text-gray-900">₵{product.sellingPrice.toFixed(2)}</td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`px-3 py-1 rounded-full text-sm ${
-                          product.stock < 10 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
-                        }`}
-                      >
-                        {product.stock} units
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleOpenModal(product)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        >
-                          <Edit size={18} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(product.id)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
+                {isLoading ? (
+                  <tr>
+                    <td className="px-6 py-4 text-gray-500" colSpan={6}>
+                      Loading products...
                     </td>
                   </tr>
-                ))}
+                ) : paginatedProducts.length === 0 ? (
+                  <tr>
+                    <td className="px-6 py-4 text-gray-500" colSpan={6}>
+                      No products found.
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedProducts.map((product) => (
+                    <tr key={product.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4 text-gray-900">{product.name}</td>
+                      <td className="px-6 py-4 text-gray-700">{product.sku}</td>
+                      <td className="px-6 py-4 text-gray-700">₵{product.costPrice.toFixed(2)}</td>
+                      <td className="px-6 py-4 text-gray-900">₵{product.sellingPrice.toFixed(2)}</td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`px-3 py-1 rounded-full text-sm ${
+                            product.stockQuantity < 10 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+                          }`}
+                        >
+                          {product.stockQuantity} units
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleOpenModal(product)}
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          >
+                            <Edit size={18} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(product.id)}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -247,8 +308,8 @@ export default function ProductsPage() {
             <Button onClick={handleCloseModal} variant="outline">
               Cancel
             </Button>
-            <Button form="product-form" type="submit" variant="primary">
-              {editingProduct ? 'Update Product' : 'Add Product'}
+            <Button form="product-form" type="submit" variant="primary" disabled={isSubmitting}>
+              {isSubmitting ? 'Saving...' : editingProduct ? 'Update Product' : 'Add Product'}
             </Button>
           </>
         }

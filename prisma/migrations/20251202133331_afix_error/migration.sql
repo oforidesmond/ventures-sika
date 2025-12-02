@@ -25,6 +25,7 @@ CREATE TABLE "User" (
 CREATE TABLE "Product" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
+    "sku" TEXT,
     "barcode" TEXT,
     "description" TEXT,
     "wholesalePrice" DECIMAL(10,2),
@@ -95,13 +96,19 @@ CREATE TABLE "SyncLog" (
 CREATE UNIQUE INDEX "User_username_key" ON "User"("username");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "Product_sku_key" ON "Product"("sku");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Product_barcode_key" ON "Product"("barcode");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Stock_productId_key" ON "Stock"("productId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Sale_receiptNumber_key" ON "Sale"("receiptNumber");
 
 -- AddForeignKey
-ALTER TABLE "Stock" ADD CONSTRAINT "Stock_productId_fkey" FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "Stock" ADD CONSTRAINT "Stock_productId_fkey" FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Sale" ADD CONSTRAINT "Sale_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Lock, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -9,12 +9,55 @@ export default function LoginPage() {
   const router = useRouter();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      router.replace('/dashboard');
+    }
+  }, [router]);
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setError(null);
 
-    if (username && password) {
-      router.push('/dashboard');
+    if (!username || !password) {
+      setError('Username and password are required.');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Unable to login.');
+      }
+
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('authToken', data.token);
+        localStorage.setItem('authUser', JSON.stringify(data.user));
+      }
+
+      router.replace('/dashboard');
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : 'Unable to login.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -30,6 +73,7 @@ export default function LoginPage() {
         </div>
 
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-8">
+          {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label className="block text-gray-700 mb-2">Username</label>
@@ -71,13 +115,13 @@ export default function LoginPage() {
               </a>
             </div>
 
-            <Button type="submit" variant="primary" size="lg" className="w-full">
-              Sign In
+            <Button type="submit" variant="primary" size="lg" className="w-full" disabled={isSubmitting}>
+              {isSubmitting ? 'Signing In...' : 'Sign In'}
             </Button>
           </form>
 
           <div className="mt-6 text-center">
-            <p className="text-gray-600 text-sm">Demo credentials: any username/password</p>
+            <p className="text-gray-600 text-sm">Use your assigned credentials to access the dashboard.</p>
           </div>
         </div>
 
