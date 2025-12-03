@@ -20,7 +20,14 @@ export default function TopBar() {
   }, []);
 
   const handleLogout = () => {
-    router.push('/');
+    // Clear authentication data from localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('authUser');
+    }
+    // Redirect to login page
+    router.push('/login');
+    router.refresh(); // Ensure the app re-renders with the new auth state
   };
 
   return (

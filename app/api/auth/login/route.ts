@@ -16,6 +16,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid credentials.' }, { status: 401 });
     }
 
+    // if (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN') {
+    //   return NextResponse.json({ error: 'Access denied. Insufficient privileges.' }, { status: 403 });
+    // }
+
     const isValid = await compare(password, user.password);
 
     if (!isValid) {

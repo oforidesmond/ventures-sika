@@ -1,18 +1,57 @@
 'use client';
 
-import { ReactNode } from 'react';
-import { usePathname } from 'next/navigation';
+import { ReactNode, useEffect, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import Sidebar from './sidebar';
 import TopBar from './top-bar';
 
 const PUBLIC_PATHS = ['/', '/login'];
 
 export default function AppShell({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const pathname = usePathname();
   const isPublicRoute = PUBLIC_PATHS.includes(pathname ?? '/');
+  const [isCheckingAuth, setIsCheckingAuth] = useState(!isPublicRoute);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    if (isPublicRoute) {
+      setIsCheckingAuth(false);
+      return;
+    }
+
+    setIsCheckingAuth(true);
+
+    const hasToken = typeof window !== 'undefined' ? Boolean(localStorage.getItem('authToken')) : false;
+
+    if (!hasToken) {
+      setIsAuthenticated(false);
+      router.replace('/login');
+    } else {
+      setIsAuthenticated(true);
+    }
+
+    setIsCheckingAuth(false);
+  }, [isPublicRoute, router]);
 
   if (isPublicRoute) {
     return <>{children}</>;
+  }
+
+  if (isCheckingAuth) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-50">
+        <p className="text-gray-600 text-sm">Checking authentication…</p>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-50">
+        <p className="text-gray-600 text-sm">Redirecting to login…</p>
+      </div>
+    );
   }
 
   return (
