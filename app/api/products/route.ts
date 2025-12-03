@@ -6,8 +6,8 @@ function formatProduct(product: any) {
     id: product.id,
     name: product.name,
     sku: product.sku ?? '',
-    costPrice: Number(product.wholesalePrice ?? 0),
-    sellingPrice: Number(product.retailPrice ?? 0),
+    costPrice: Number(product.cost ?? 0),
+    sellingPrice: Number(product.price ?? 0),
     stockQuantity: product.stock?.quantity ?? 0,
     createdAt: product.createdAt,
     updatedAt: product.updatedAt,
@@ -36,9 +36,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Name and SKU are required.' }, { status: 400 });
     }
 
+    if (costPrice === undefined || sellingPrice === undefined) {
+      return NextResponse.json({ error: 'Cost and selling price are required.' }, { status: 400 });
+    }
+
     const parsedCost = Number(costPrice);
     const parsedSelling = Number(sellingPrice);
-    const parsedStock = Number(stock);
+    const parsedStock = stock !== undefined ? Number(stock) : 0;
 
     if ([parsedCost, parsedSelling].some((value) => Number.isNaN(value))) {
       return NextResponse.json({ error: 'Cost and selling price must be numbers.' }, { status: 400 });
@@ -52,8 +56,8 @@ export async function POST(request: Request) {
       data: {
         name,
         sku,
-        wholesalePrice: parsedCost,
-        retailPrice: parsedSelling,
+        cost: parsedCost,
+        price: parsedSelling,
         stock: {
           create: {
             quantity: parsedStock,

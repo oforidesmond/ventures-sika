@@ -6,8 +6,8 @@ function formatProduct(product: any) {
     id: product.id,
     name: product.name,
     sku: product.sku ?? '',
-    costPrice: Number(product.wholesalePrice ?? 0),
-    sellingPrice: Number(product.retailPrice ?? 0),
+    costPrice: Number(product.cost ?? 0),
+    sellingPrice: Number(product.price ?? 0),
     stockQuantity: product.stock?.quantity ?? 0,
     createdAt: product.createdAt,
     updatedAt: product.updatedAt,
@@ -42,7 +42,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       if (Number.isNaN(parsedCost)) {
         return NextResponse.json({ error: 'Cost price must be a valid number.' }, { status: 400 });
       }
-      updateData.wholesalePrice = parsedCost;
+      updateData.cost = parsedCost;
     }
 
     if (sellingPrice !== undefined) {
@@ -50,7 +50,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       if (Number.isNaN(parsedSelling)) {
         return NextResponse.json({ error: 'Selling price must be a valid number.' }, { status: 400 });
       }
-      updateData.retailPrice = parsedSelling;
+      updateData.price = parsedSelling;
     }
 
     if (stock !== undefined) {

@@ -53,13 +53,10 @@ model Product {
   sku            String?     @unique
   barcode        String?    @unique
   description    String?
-  wholesalePrice Decimal?   @db.Decimal(10, 2)
-  retailPrice    Decimal?   @db.Decimal(10, 2)
-  unit           String?
+  cost           Decimal    @db.Decimal(10, 2)
+  price          Decimal    @db.Decimal(10, 2)
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
-  syncStatus     SyncStatus @default(SYNCED)
-  lastSyncedAt   DateTime?
 
   stock     Stock?
   saleItems SaleItem[]
@@ -82,14 +79,11 @@ model Sale {
   receiptNumber String        @unique
   userId        String
   subtotal      Decimal       @db.Decimal(10, 2)
-  tax           Decimal?      @db.Decimal(10, 2)
   discount      Decimal?      @db.Decimal(10, 2)
   totalAmount   Decimal       @db.Decimal(10, 2)
   paymentMethod PaymentMethod
   createdAt     DateTime      @default(now())
-  syncStatus    SyncStatus    @default(SYNCED)
-  lastSyncedAt  DateTime?
-
+  
   attendant User      @relation(fields: [userId], references: [id])
   items     SaleItem[]
 }
