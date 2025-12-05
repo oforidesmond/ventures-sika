@@ -195,43 +195,48 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Discount cannot exceed subtotal.' }, { status: 400 });
     }
 
-    const sale = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      for (const item of itemsPayload) {
-        const stock = await tx.stock.findUnique({ where: { productId: item.productId } });
-        if (!stock || stock.quantity < item.quantity) {
-          throw new Error('Stock levels changed. Please refresh and try again.');
+    const sale = await prisma.$transaction(
+      async (tx: Prisma.TransactionClient) => {
+        for (const item of itemsPayload) {
+          const stock = await tx.stock.findUnique({ where: { productId: item.productId } });
+          if (!stock || stock.quantity < item.quantity) {
+            throw new Error('Stock levels changed. Please refresh and try again.');
+          }
         }
-      }
 
-      const createdSale = await tx.sale.create({
-        data: {
-          receiptNumber:
-            receiptNumber && typeof receiptNumber === 'string' && receiptNumber.trim().length > 0
-              ? receiptNumber.trim()
-              : `SAL-${Date.now()}`,
-          userId,
-          subtotal: centsToAmount(subtotalInCents),
-          discount: centsToAmount(discountInCents),
-          totalAmount: centsToAmount(subtotalInCents - discountInCents),
-          paymentMethod: normalizedPaymentMethod,
-          items: {
-            create: itemsPayload,
+        const createdSale = await tx.sale.create({
+          data: {
+            receiptNumber:
+              receiptNumber && typeof receiptNumber === 'string' && receiptNumber.trim().length > 0
+                ? receiptNumber.trim()
+                : `SAL-${Date.now()}`,
+            userId,
+            subtotal: centsToAmount(subtotalInCents),
+            discount: centsToAmount(discountInCents),
+            totalAmount: centsToAmount(subtotalInCents - discountInCents),
+            paymentMethod: normalizedPaymentMethod,
+            items: {
+              create: itemsPayload,
+            },
           },
-        },
-        include: saleInclude,
-      });
+          include: saleInclude,
+        });
 
-      await Promise.all(
-        itemsPayload.map((item) =>
-          tx.stock.update({
-            where: { productId: item.productId },
-            data: { quantity: { decrement: item.quantity } },
-          }),
-        ),
-      );
+        await Promise.all(
+          itemsPayload.map((item) =>
+            tx.stock.update({
+              where: { productId: item.productId },
+              data: { quantity: { decrement: item.quantity } },
+            }),
+          ),
+        );
 
-      return createdSale;
-    });
+        return createdSale;
+      },
+      {
+        timeout: 30000, // 30 seconds timeout
+      }
+    );
 
     return NextResponse.json({ sale: formatSale(sale) }, { status: 201 });
   } catch (error: any) {
